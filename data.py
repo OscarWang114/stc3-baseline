@@ -168,6 +168,9 @@ def process_raw_data(raw_data,
         logger.debug("Cache_dir was not set, processed data from scratch")
         data = [x for x in data_gen()]
     logger.debug("Dataset size: %d, type: %s" % (len(data), "training" if is_train else "inference"))
+
+    vocab.k_and_unk_words_to_json(name)
+
     return data
 
 

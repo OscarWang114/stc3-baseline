@@ -2,6 +2,8 @@ import csv
 import logging
 import zipfile
 from enum import Enum, unique
+from collections import defaultdict
+import json
 
 import jieba
 import nltk
@@ -63,6 +65,9 @@ class Vocab(object):
         self.language = language
         self.cased = cased
 
+        self.k_counter = defaultdict(int)
+        self.unk_counter = defaultdict(int)
+
         if tokenizer is None:
             if self.language is Language.english:
                 self.tokenizer = get_tokenizer("spacy:en")
@@ -86,7 +91,21 @@ class Vocab(object):
         if not self.cased:
             word = word.lower()
 
-        return self._wtoi.get(word, self.unk_idx)
+        if word in self._wtoi:
+            self.k_counter[word] += 1
+            return self._wtoi[word]
+        else:
+            self.unk_counter[word] += 1
+            return self.unk_idx
+
+    def k_and_unk_words_to_json(self, name):
+        unk_json_file = name + '.unk.json'
+        with open(unk_json_file, 'w', encoding='utf-8') as fp:
+            json.dump(self.unk_counter, fp)
+
+        k_json_file = name + '.k.json'
+        with open(k_json_file, 'w', encoding='utf-8') as fp:
+            json.dump(self.k_counter, fp)
 
     def index_to_word(self, index):
         return self._itow[index]

@@ -223,7 +223,7 @@ def prepare_data_and_vocab(vocab, store_folder, data_dir, language=Language.engl
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     trainer = TrainingHelper()
-    if not trainer.inference_mode:
-        trainer.train()
-
-    test_prediction = trainer.predict_test()
+    # if not trainer.inference_mode:
+    #     trainer.train()
+    #
+    # test_prediction = trainer.predict_test()
