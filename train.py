@@ -70,10 +70,10 @@ class TrainingHelper(object):
 
         # split training set into train and dev sets
         self.raw_train, self.raw_dev = model_selection.train_test_split(
-            json.load(train_path.open()),
+            json.load(train_path.open(encoding='utf-8')),
             test_size=params.dev_ratio, random_state=params.random_seed)
 
-        self.raw_test = json.load(test_path.open())
+        self.raw_test = json.load(test_path.open(encoding='utf-8'))
 
         train_dataset = process_raw_data(
             self.raw_train,
