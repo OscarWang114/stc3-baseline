@@ -1,0 +1,9 @@
+[--data-dir]
+type = str
+required = True
+help = Set data directory
+
+[--test-dir]
+type = str
+default = data/dbdc3/dev
+help = Set testing data directory

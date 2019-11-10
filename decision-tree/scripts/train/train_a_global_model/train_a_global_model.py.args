@@ -1,0 +1,39 @@
+[--dev-dir]
+type = str
+default = data/dbdc3/evaluation_data_with_reference_labels
+help = Set path to eval directory (default: 'data/dbdc3/dev')
+
+[--eval-dir]
+type = str
+default = data/dbdc3/evaluation_data_with_reference_labels
+help = Set path to eval directory (default: 'data/dbdc3/dev')
+
+[--output-dir]
+type = str
+default = outputs
+help = Set path to output directory (default: 'outputs')
+
+[--lang]
+type = str
+default = en
+help = Select data language (default: 'en')
+
+[--model-path]
+type = str
+default = None
+help = Set path to word embedding vectors
+
+[--max-bef]
+type = int
+default = 3
+help = Set the number of
+
+[--keyword-n]
+type = int
+default = 10
+help = Set how many top n in offer-weight ranks
+
+[--save-dir]
+type = str
+default = outputs
+help = Set the path to saving directory

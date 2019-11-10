@@ -1,0 +1,54 @@
+3 21:44:50 JST 2019
+######### Data Stats #########
+File Num : 		200
+System Utterance Num : 	2000
+O Label Num : 		757
+T Label Num : 		479
+X Label Num : 		764
+
+######### Results #########
+Accuracy : 		0.344500 (689/2000)
+
+Precision (X) : 	0.492537 (99/201)
+Recall    (X) : 	0.129581 (99/764)
+F-measure (X) : 	0.205181
+
+Precision (T+X) : 	0.804564 (1375/1709)
+Recall    (T+X) : 	0.909993 (1375/1511)
+F-measure (T+X) : 	0.854037
+
+JS divergence (O,T,X) : 	0.060740
+JS divergence (O,T+X) : 	0.032053
+JS divergence (O+T,X) : 	0.035703
+
+Mean squared error (O,T,X) : 	0.036684
+Mean squared error (O,T+X) : 	0.036588
+Mean squared error (O+T,X) : 	0.041008
+###########################
+
+######### Data Stats #########
+File Num : 		200
+System Utterance Num : 	2000
+O Label Num : 		757
+T Label Num : 		479
+X Label Num : 		764
+
+######### Results #########
+Accuracy : 		0.383500 (767/2000)
+
+Precision (X) : 	0.451031 (175/388)
+Recall    (X) : 	0.229058 (175/764)
+F-measure (X) : 	0.303819
+
+Precision (T+X) : 	0.820178 (1195/1457)
+Recall    (T+X) : 	0.790867 (1195/1511)
+F-measure (T+X) : 	0.805256
+
+JS divergence (O,T,X) : 	0.051769
+JS divergence (O,T+X) : 	0.028620
+JS divergence (O+T,X) : 	0.033295
+
+Mean squared error (O,T,X) : 	0.030380
+Mean squared error (O,T+X) : 	0.032131
+Mean squared error (O+T,X) : 	0.038042
+###########################
