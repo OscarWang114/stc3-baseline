@@ -21,6 +21,7 @@ def define_flags():
 def __define_base(parser):
     parser.add_argument("--task", type=str, default="nugget")
     parser.add_argument("--language", type=str, default="english")
+    parser.add_argument("--h_type", type=str, default="ALL")
     parser.add_argument("--embedding-dir", type=str, default=PROJECT_DIR / "data" / "embedding")
     parser.add_argument("--cache-dir", type=str, default=PROJECT_DIR / "data" / "cache")
     parser.add_argument("--data-dir", type=str, default=PROJECT_DIR / "stc3dataset" / "data")

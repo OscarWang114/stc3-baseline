@@ -29,6 +29,13 @@ class Language(Enum):
     english = 0
     chinese = 1
 
+@unique
+class HelpDeskType(Enum):
+    CZ = "锤子科技"
+    DX = "中国电信"
+    LT = "中国联通"
+    OT = "Others"
+    ALL = "All"
 
 @unique
 class SpecialTokens(Enum):

@@ -13,7 +13,7 @@ import vocab
 from data import process_raw_data, build_dataset_op, Task
 from flags import define_flags
 from stc3dataset.data.eval import evaluate_from_list
-from vocab import Language
+from vocab import Language, HelpDeskType
 
 PROJECT_DIR = Path(__file__).parent.parent
 import numpy as np
@@ -38,6 +38,8 @@ def flags2params(flags, customized_params=None):
     flags.optimizer = getattr(tf.train, flags.optimizer)
     flags.cell = getattr(tf.nn.rnn_cell, flags.cell)
 
+    flags.h_type = HelpDeskType[flags.h_type]
+
     return flags
 
 class TrainingHelper(object):
@@ -51,8 +53,9 @@ class TrainingHelper(object):
         self.logger.info("Language: " + str(params.language))
         self.task = params.task
         self.language = params.language
-        self.run_name = "%s_%s_%s_%s" % (
-            params.tag, self.task.name, self.language.name,
+        self.h_type = params.h_type
+        self.run_name = "%s_%s_%s_%s_%s" % (
+            params.tag, self.task.name, self.language.name, self.h_type,
             datetime.datetime.now().strftime('%b-%d_%H-%M-%S-%f'))
         assert not (params.log_dir / self.run_name).is_dir(), "The run %s has existed in Log Path %s" % (
         self.run_name, params.log_dir)
@@ -66,7 +69,9 @@ class TrainingHelper(object):
             vocab=params.vocab,
             store_folder=params.embedding_dir,
             data_dir=params.data_dir,
-            language=params.language)
+            language=params.language,
+            h_type=params.h_type,
+        )
 
         # split training set into train and dev sets
         self.raw_train, self.raw_dev = model_selection.train_test_split(
@@ -81,7 +86,7 @@ class TrainingHelper(object):
             max_len=params.max_len,
             cache_dir=params.cache_dir,
             is_train=True,
-            name="train_%s" % params.language)
+            name="train_%s_%s" % (params.language, params.h_type))
 
         dev_dataset = process_raw_data(
             self.raw_dev,
@@ -89,7 +94,7 @@ class TrainingHelper(object):
             max_len=params.max_len,
             cache_dir=params.cache_dir,
             is_train=False,
-            name="dev_%s" % params.language)
+            name="dev_%s_%s" % (params.language, params.h_type))
 
         test_dataset = process_raw_data(
             self.raw_test,
@@ -97,7 +102,7 @@ class TrainingHelper(object):
             max_len=params.max_len,
             cache_dir=params.cache_dir,
             is_train=False,
-            name="test_%s" % params.language)
+            name="test_%s_%s" % (params.language, params.h_type))
 
         pad_idx = vocab.pad_idx
         self.train_iterator = build_dataset_op(train_dataset, pad_idx, params.batch_size, is_train=True)
@@ -184,7 +189,8 @@ class TrainingHelper(object):
         submission = self.__predictions_to_submission_format(predictions)
 
         if write_to_file:
-            output_file = trainer.output_dir / ("%s_%s_test_submission.json" % (self.task.name, self.language.name))
+            output_file = trainer.output_dir / ("%s_%s_%s_test_submission.json" %
+                                                (self.task.name, self.language.name, self.h_type.name))
             output_file.parent.mkdir(parents=True, exist_ok=True)
             json.dump(submission, output_file.open("w"))
 
@@ -207,11 +213,24 @@ class TrainingHelper(object):
 
 
 
-def prepare_data_and_vocab(vocab, store_folder, data_dir, language=Language.english, tokenizer=None):
+def prepare_data_and_vocab(vocab, store_folder, data_dir, language=Language.english, h_type=None, tokenizer=None):
     tf.gfile.MakeDirs(str(store_folder))
     if language == Language.chinese:
-        train_path = data_dir / "train_data_cn.json"
-        test_path = data_dir / "test_data_cn.json"
+        if h_type == HelpDeskType.CZ:
+            train_path = data_dir / "train_data_cn_CZ.json"
+            test_path = data_dir / "test_data_cn_CZ.json"
+        elif h_type == HelpDeskType.DX:
+            train_path = data_dir / "train_data_cn_DX.json"
+            test_path = data_dir / "test_data_cn_DX.json"
+        elif h_type == HelpDeskType.LT:
+            train_path = data_dir / "train_data_cn_LT.json"
+            test_path = data_dir / "test_data_cn_LT.json"
+        elif h_type == HelpDeskType.OT:
+            train_path = data_dir / "train_data_cn_OT.json"
+            test_path = data_dir / "test_data_cn_OT.json"
+        else:
+            train_path = data_dir / "train_data_cn_ALL.json"
+            test_path = data_dir / "test_data_cn_ALL.json"
     else:
         train_path = data_dir / "train_data_en.json"
         test_path = data_dir / "test_data_en.json"
@@ -223,7 +242,7 @@ def prepare_data_and_vocab(vocab, store_folder, data_dir, language=Language.engl
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     trainer = TrainingHelper()
-    # if not trainer.inference_mode:
-    #     trainer.train()
-    #
-    # test_prediction = trainer.predict_test()
+    if not trainer.inference_mode:
+        trainer.train()
+
+    test_prediction = trainer.predict_test()
