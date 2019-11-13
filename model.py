@@ -161,10 +161,13 @@ def _sender_aware_encoding(inputs, senders):
         return output
 
 
-def _rnn(inputs, seq_lengths, dropout, params):
+def _rnn(inputs, seq_lengths, dropout, params, trainable=True):
     with tf.name_scope("rnn"):
         cell_fn = lambda: rnn_cell.DropoutWrapper(
-            params.cell(params.hidden_size),
+            params.cell(
+                params.hidden_size,
+                trainable=trainable
+            ),
             output_keep_prob=1 - dropout,
             variational_recurrent=True,
             dtype=tf.float32

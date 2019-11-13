@@ -55,7 +55,7 @@ class TrainingHelper(object):
         self.language = params.language
         self.h_type = params.h_type
         self.run_name = "%s_%s_%s_%s_%s" % (
-            params.tag, self.task.name, self.language.name, self.h_type,
+            params.tag, self.task.name, self.language.name, self.h_type.name,
             datetime.datetime.now().strftime('%b-%d_%H-%M-%S-%f'))
         assert not (params.log_dir / self.run_name).is_dir(), "The run %s has existed in Log Path %s" % (
         self.run_name, params.log_dir)
@@ -88,6 +88,14 @@ class TrainingHelper(object):
             is_train=True,
             name="train_%s_%s" % (params.language, params.h_type))
 
+        train_eval_dataset = process_raw_data(
+            self.raw_train,
+            vocab=vocab,
+            max_len=params.max_len,
+            cache_dir=params.cache_dir,
+            is_train=False,
+            name="train_eval_%s_%s" % (params.language, params.h_type))
+
         dev_dataset = process_raw_data(
             self.raw_dev,
             vocab=vocab,
@@ -107,6 +115,10 @@ class TrainingHelper(object):
         pad_idx = vocab.pad_idx
         self.train_iterator = build_dataset_op(train_dataset, pad_idx, params.batch_size, is_train=True)
         self.train_batch = self.train_iterator.get_next()
+
+        self.train_eval_iterator = build_dataset_op(train_eval_dataset, pad_idx, params.batch_size, is_train=False)
+        self.train_eval_batch = self.train_eval_iterator.get_next()
+
         self.dev_iterator = build_dataset_op(dev_dataset, pad_idx, params.batch_size, is_train=False)
         self.dev_batch = self.dev_iterator.get_next()
         self.test_iterator = build_dataset_op(test_dataset, pad_idx, params.batch_size, is_train=False)
@@ -149,13 +161,15 @@ class TrainingHelper(object):
             train_loss = self.train_epoch()
             used_time = time.time() - start
             self.logger.info(" Epoch %d, training loss = %.4f, used %.2f sec" % (epoch + 1, train_loss, used_time))
-            metrics = self.evaluate_on_dev()
-            curr_score = self.metrics_to_single_value(metrics)
+            train_metrics = self.evaluate_on_train()
+            dev_metrics = self.evaluate_on_dev()
+            curr_score = self.metrics_to_single_value(dev_metrics)
 
-            self.logger.info(" Dev Metrics: %s" %metrics[self.task.name])
+            self.logger.info(" Train Metrics: %s" % train_metrics[self.task.name])
+            self.logger.info(" Dev Metrics: %s" % dev_metrics[self.task.name])
 
             if self.log_to_tensorboard:
-                self.write_to_summary(metrics, epoch)
+                self.write_to_summary(train_metrics, dev_metrics, train_loss, epoch)
 
             if best_score > curr_score:
                 best_score = curr_score
@@ -164,19 +178,31 @@ class TrainingHelper(object):
         self.load_best_model()
 
 
-    def write_to_summary(self, metrics, global_step):
+    def write_to_summary(self, train_metrics, dev_metrics, train_loss, global_step):
         summary = tf.Summary()
-        if metrics["quality"] is not None:
-            for distance_type, distance in metrics["quality"].items():
+        if dev_metrics["quality"] is not None:
+            for distance_type, distance in dev_metrics["quality"].items():
                 for score_type, score in distance.items():
                     summary.value.add(tag="quality_dev_%s/%s_score" % (distance_type, score_type), simple_value=score)
 
-        if metrics["nugget"] is not None:
-            for distance_type, distance in metrics["nugget"].items():
+        summary.value.add(tag="train_loss", simple_value=train_loss)
+
+        if train_metrics["nugget"] is not None:
+            for distance_type, distance in train_metrics["nugget"].items():
+                summary.value.add(tag="nugget_train_%s/" % (distance_type), simple_value=distance)
+
+        if dev_metrics["nugget"] is not None:
+            for distance_type, distance in dev_metrics["nugget"].items():
                 summary.value.add(tag="nugget_dev_%s/" % (distance_type), simple_value=distance)
 
         self.log_writer.add_run_metadata(self.model.run_metadata, "meta_%s" % global_step, global_step=global_step)
         self.log_writer.add_summary(summary, global_step=global_step)
+
+    def evaluate_on_train(self):
+        predictions = self.model.predict(self.train_eval_iterator.initializer, self.train_eval_batch)
+        submission = self.__predictions_to_submission_format(predictions)
+        scores = evaluate_from_list(submission, self.raw_train)
+        return scores
 
     def evaluate_on_dev(self):
         predictions = self.model.predict(self.dev_iterator.initializer, self.dev_batch)
