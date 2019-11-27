@@ -20,6 +20,7 @@ bs256-lr1e-4-ep10 looks good
 baseline_nugget_chinese_DX_Nov-12_15-10-34-999909: ALL-DX-bs256-lr1e-4-10ep
 baseline_nugget_chinese_CZ_Nov-12_15-12-53-935816: ALL-CZ-bs256-lr1e-4-10ep
 baseline_nugget_chinese_LT_Nov-12_15-14-54-059207: ALL-LT-bs256-lr1e-4-10ep
+baseline_nugget_chinese_ALL_Nov-27_02-15-08-273373: ALL-ALL-bs256-lr1e-4-10ep
 
 ### Train from Scratch
 

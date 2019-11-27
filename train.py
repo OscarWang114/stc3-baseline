@@ -145,10 +145,12 @@ class TrainingHelper(object):
                 flush_secs=20)
 
     def train_epoch(self, checkpoint_dir=None):
-        train_loss = self.model.train_epoch(
+        train_loss, c_shape, h_shape = self.model.train_epoch(
             self.train_iterator.initializer,
             self.train_batch,
             save_path=checkpoint_dir or self.checkpoint_dir)
+        self.logger.info("C" + c_shape)
+        self.logger.info("H" + h_shape)
         return train_loss
 
     def load_best_model(self):

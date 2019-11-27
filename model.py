@@ -5,11 +5,13 @@ from tensorflow.contrib.rnn import stack_bidirectional_dynamic_rnn
 from tensorflow.python.ops import rnn_cell
 
 import data
+import logging
 from data import Task
 
 
 class Model(object):
     def __init__(self, embedding, task, params, session=None, graph=None):
+        self.logger = logging.getLogger(__name__)
         self.graph = graph or tf.get_default_graph()
         self.session = session or tf.Session()
         self.task = task
@@ -17,6 +19,8 @@ class Model(object):
             shape=(None, None, None), dtype=tf.int32, name="turns")
         self.senders = tf.placeholder(
             shape=(None, None), dtype=tf.bool, name="senders")
+        self.has_q_marks = tf.placeholder(
+            shape=(None, None), dtype=tf.bool, name="has_q_marks")
         self.turn_lengths = tf.placeholder(
             shape=(None, None), dtype=tf.int32, name="turn_lengths")
         self.dialogue_lengths = tf.placeholder(
@@ -38,16 +42,18 @@ class Model(object):
             turns_embedded = tf.nn.embedding_lookup(self.embedding, self.turns)
         turns_boW = tf.reduce_sum(turns_embedded, axis=2, name="BoW")  # Bag of Words
 
-        features = (turns_boW, self.senders, self.turn_lengths, self.dialogue_lengths)
+        features = (turns_boW, self.senders, self.has_q_marks, self.turn_lengths, self.dialogue_lengths)
 
         if task == Task.nugget:
-            self.c_nuggets_logits, self.h_nuggets_logits = nugget_model_fn(features, self.dropout, params)
+            self.c_nuggets_logits, self.h_nuggets_logits, self.c_shape, self.h_shape = nugget_model_fn(features, self.dropout, params)
             self.loss = nugget_loss(
                 self.c_nuggets_logits, self.h_nuggets_logits,
                 self.c_nuggets_labels, self.h_nuggets_labels, self.dialogue_lengths, tf.shape(self.turns)[1])
 
             self.prediction = (tf.nn.softmax(self.c_nuggets_logits, axis=-1),
                                tf.nn.softmax(self.h_nuggets_logits, axis=-1))
+
+            # print(c_shape, h_shape)
 
         elif task == Task.quality:
             self.quality_logits = quality_model_fn(features, self.dropout, params)
@@ -83,12 +89,13 @@ class Model(object):
 
 
     def train_batch(self, batch_op):
-        (_, turns, senders, turn_lengths, dialog_lengths,
+        (_, turns, senders, has_q_marks, turn_lengths, dialog_lengths,
          c_nugget_labels, h_nugget_labels, quality_labels) = self.session.run(batch_op)
 
         feed_dict = {
             self.turns: turns,
             self.senders: senders,
+            self.has_q_marks: has_q_marks,
             self.turn_lengths: turn_lengths,
             self.dialogue_lengths: dialog_lengths,
             self.c_nuggets_labels: c_nugget_labels,
@@ -117,14 +124,15 @@ class Model(object):
                         self.save_model(save_path)
                 except tf.errors.OutOfRangeError:
                     break
-        return reduce_fn(results)
+        return reduce_fn(results), self.c_shape, self.h_shape
 
     def __predict_batch(self, batch_op):
-        (dialog_ids, turns, senders, turn_lengths, dialog_lengths) = self.session.run(batch_op)
+        (dialog_ids, turns, senders, has_q_marks, turn_lengths, dialog_lengths) = self.session.run(batch_op)
 
         feed_dict = {
             self.turns: turns,
             self.senders: senders,
+            self.has_q_marks: has_q_marks,
             self.turn_lengths: turn_lengths,
             self.dialogue_lengths: dialog_lengths,
             self.dropout: 0.,
@@ -199,9 +207,20 @@ def quality_model_fn(features, dropout, params):
 
 
 def nugget_model_fn(features, dropout, params):
-    turns, senders, utterance_lengths, dialog_lengths = features
+    turns, senders, has_q_marks, utterance_lengths, dialog_lengths = features
     output = _encoder(turns, senders, dialog_lengths, dropout, params)
 
+    has_q_marks = tf.Print(has_q_marks, [has_q_marks, senders], summarize=20)
+    # convert from (batch_size, max_time) to  (batch_size, max_time, 1)
+    has_q_marks = tf.expand_dims(has_q_marks, -1)
+    # convert True to 1, False to 0
+    has_q_marks = tf.cast(has_q_marks, tf.float32)
+    # convert 1 to 1, 0 to -1 because LSTM uses tanh activation
+    has_q_marks = tf.map_fn(lambda x: x * 2. - 1., has_q_marks)
+
+    has_q_marks = tf.Print(has_q_marks, [has_q_marks, senders], summarize=20)
+
+    output = tf.concat([output, has_q_marks], -1)
 
     # assume ordering is  [customer, helpdesk, customer, .....]
     max_time = tf.shape(output)[1]
@@ -217,7 +236,7 @@ def nugget_model_fn(features, dropout, params):
         customer_logits = tf.layers.dense(customer_output, len(data.CUSTOMER_NUGGET_TYPES_WITH_PAD))
         helpdesk_logits = tf.layers.dense(helpdesk_output, len(data.HELPDESK_NUGGET_TYPES_WITH_PAD))
 
-    return customer_logits, helpdesk_logits
+    return customer_logits, helpdesk_logits, str(output.get_shape().as_list()), str(has_q_marks.get_shape().as_list())
 
 
 def nugget_loss(customer_logits, helpdesk_logits, customer_labels, helpdesk_labels, dialogue_lengths, max_dialogue_len):

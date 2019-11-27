@@ -114,10 +114,13 @@ def process_raw_data(raw_data,
         for dialogue in raw_data:
             tokenized_turns = []
             senders = []
+            has_q_marks = []
             for turn in dialogue["turns"]:
                 sender = 1 if turn["sender"].startswith("c") else 0
                 senders.append(sender)
                 text = " ".join(turn["utterances"])
+                has_q_mark = 1 if "?" in text or "？" in text else 0
+                has_q_marks.append(has_q_mark)
                 tokenized_text = [vocab.sos_idx]
 
                 for token in vocab.tokenizer(text)[:max_len]:
@@ -136,6 +139,7 @@ def process_raw_data(raw_data,
                 yield (dialogue["id"],
                        padded_turns,
                        senders,
+                       has_q_marks,
                        turn_lengths,
                        dialogue_length,
                        customer_nugget_label,
@@ -146,6 +150,7 @@ def process_raw_data(raw_data,
                 yield (dialogue["id"],
                        padded_turns,
                        senders,
+                       has_q_marks,
                        turn_lengths,
                        dialogue_length)
 
@@ -184,7 +189,7 @@ def build_dataset_op(data, pad_idx, batch_size=32, is_train=True):
     if is_train:
         dataset = tf.data.Dataset.from_generator(
             lambda: (x for x in data),
-            output_types=(tf.string, tf.int32, tf.bool, tf.int32, tf.int32, tf.float32, tf.float32, tf.float32))
+            output_types=(tf.string, tf.int32, tf.bool, tf.bool, tf.int32, tf.int32, tf.float32, tf.float32, tf.float32))
 
         dataset = dataset.shuffle(SHUFFLE_BUFFER_SIZE)
 
@@ -192,6 +197,7 @@ def build_dataset_op(data, pad_idx, batch_size=32, is_train=True):
             batch_size=batch_size,
             padded_shapes=(tf.TensorShape([]),
                            tf.TensorShape([None, None]),
+                           tf.TensorShape([None]),
                            tf.TensorShape([None]),
                            tf.TensorShape([None]),
                            tf.TensorShape([]),
@@ -203,6 +209,7 @@ def build_dataset_op(data, pad_idx, batch_size=32, is_train=True):
             padding_values=("",
                             pad_idx,
                             False,
+                            False,
                             0,
                             0,
                             1. / len(CUSTOMER_NUGGET_TYPES_WITH_PAD),
@@ -212,7 +219,7 @@ def build_dataset_op(data, pad_idx, batch_size=32, is_train=True):
     else:
         dataset = tf.data.Dataset.from_generator(
             lambda: (x for x in data),
-            output_types=(tf.string, tf.int32, tf.bool, tf.int32, tf.int32))
+            output_types=(tf.string, tf.int32, tf.bool, tf.bool, tf.int32, tf.int32))
 
         dataset = dataset.padded_batch(
             batch_size=batch_size,
@@ -220,11 +227,13 @@ def build_dataset_op(data, pad_idx, batch_size=32, is_train=True):
                            tf.TensorShape([None, None]),
                            tf.TensorShape([None]),
                            tf.TensorShape([None]),
+                           tf.TensorShape([None]),
                            tf.TensorShape([]),
                            ),
 
             padding_values=("",
                             pad_idx,
+                            False,
                             False,
                             0,
                             0))
